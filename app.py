@@ -1,6 +1,7 @@
 import streamlit as st
 import random
 import pandas as pd
+import datetime
 
 st.set_page_config(page_title="Budżet domowy PRO", layout="centered")
 st.title("🏠 Budżet domowy – rozbudowana wersja")
@@ -20,6 +21,8 @@ def remove_row(key_prefix):
 # --- Inicjalizacja stanu ---
 for obszar in ["stałe", "jedzenie", "rozrywka", "transport", "dzieci"]:
     init_state(obszar + "_rows", 0)
+
+init_state("history", {})
 
 # --- Dane wejściowe ---
 dochód = st.number_input("Podaj miesięczny dochód netto (zł):", min_value=0, step=100)
@@ -55,7 +58,7 @@ def obszar_procentowy(nazwa_obszaru, sesja_key, komentarz, dochód, predefiniowa
     st.caption(komentarz)
 
     suma = 0
-    use_percent = st.checkbox(f"📐 Ustal prognozowany % budżetu na: {nazwa_obszaru}", key=f"chk_{sesja_key}")
+    use_percent = st.checkbox(f"📀 Ustal prognozowany % budżetu na: {nazwa_obszaru}", key=f"chk_{sesja_key}")
 
     if use_percent:
         prog = st.slider(f"{nazwa_obszaru} – prognozowany % budżetu", 0, 50, 10, key=f"prog_{sesja_key}")
@@ -80,7 +83,7 @@ def obszar_procentowy(nazwa_obszaru, sesja_key, komentarz, dochód, predefiniowa
             suma += kwota
         return suma
 
-# --- Obszary ---
+# --- Obszary budżetowe ---
 suma_jedzenie = obszar_procentowy("Jedzenie", "jedzenie", "💬 Proponowany udział: 10–15%", dochód)
 suma_rozrywka = obszar_procentowy("Rozrywka", "rozrywka", "💬 Proponowany udział: do 10%", dochód)
 suma_transport = obszar_procentowy(
@@ -92,7 +95,7 @@ suma_dzieci = obszar_procentowy(
     predefiniowane=["Zajęcia dodatkowe", "Wycieczki", "Obiady w szkole", "Kieszonkowe", "Telefon"]
 )
 
-# --- Oszczędności
+# --- Oszczędności ---
 st.subheader("💼 Oszczędności")
 st.caption("💬 Zalecany udział: minimum 10%")
 oszczednosci = st.number_input("Kwota oszczędności (zł)", min_value=0.0, step=10.0)
@@ -117,7 +120,7 @@ elif zostaje < 0:
 else:
     st.info("🔁 Budżet idealnie się bilansuje.")
 
-# --- Wykres słupkowy ---
+# --- Wykres ---
 st.subheader("📈 Wykres wydatków")
 df = pd.DataFrame({
     'Kategoria': ["Stałe", "Jedzenie", "Rozrywka", "Transport", "Dzieci", "Oszczędności"],
@@ -125,7 +128,7 @@ df = pd.DataFrame({
 })
 st.bar_chart(df.set_index('Kategoria'))
 
-# --- Sekcja: Oszczędzanie na konkretny cel ---
+# --- Oszczędzanie na cel ---
 st.subheader("🎯 Planowanie oszczędzania na cel")
 
 cele_domyslne = {
@@ -154,13 +157,35 @@ if dochód > 0 and liczba_miesiecy > 0 and cel_kwota:
     st.info(f"🎯 Cel: **{nazwa_celu}** ({cel_kwota} zł w {liczba_miesiecy} miesięcy)")
     st.markdown(f"""
     - 💸 Musisz odkładać: **{miesieczna_kwota} zł miesięcznie**
-    - 📊 To około **{udzial_proc}%** Twojego miesięcznego dochodu
+    - 📊 To około **{udzial_proc}%** Twojego miesięcznego budżetu
     """)
 
     if miesieczna_kwota + suma_wszystkiego > dochód:
-        st.warning("⚠️ Uwaga! Ten cel przekracza możliwości Twojego budżetu – sprawdź inne opcje lub wydłuż czas oszczędzania.")
+        st.warning("⚠️ Ten cel przekracza możliwości Twojego budżetu – sprawdź inne opcje lub wydłuż czas oszczędzania.")
     else:
         st.success("✅ Ten cel jest możliwy do zrealizowania w ramach Twojego budżetu 💪")
+
+# --- Zapis miesięczny ---
+if st.button("🔖 Zapisz miesiąc do historii"):
+    teraz = datetime.datetime.now().strftime("%Y-%m")
+    st.session_state.history[teraz] = {
+        "dochód": dochód,
+        "wydatki": suma_wszystkiego,
+        "zostaje": zostaje,
+        "oszczędności_cel": miesieczna_kwota if 'miesieczna_kwota' in locals() else 0,
+        "nazwa_celu": nazwa_celu if 'nazwa_celu' in locals() else ""
+    }
+    st.success(f"Zapisano miesiąc {teraz} do historii!")
+
+# --- Historia miesięcy ---
+if st.checkbox("📅 Pokaż historię zapisanych miesięcy"):
+    if st.session_state.history:
+        st.subheader("📆 Historia budżetu")
+        historia_df = pd.DataFrame.from_dict(st.session_state.history, orient="index")
+        historia_df.index.name = "Miesiąc"
+        st.dataframe(historia_df)
+    else:
+        st.info("Brak zapisanych miesięcy na razie.")
 
 # --- Dobra rada ---
 st.subheader("💡 Dobra rada na dziś")
