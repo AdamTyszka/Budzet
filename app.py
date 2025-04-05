@@ -41,7 +41,26 @@ if dochód > 0:
         udzial = round(kwota / dochód * 100, 1)
         st.write(f"**{kategoria}**: {kwota} zł ({udzial}%)")
 
+    # Oblicz ile zostaje
     zostaje = round(dochód - suma_wydatków, 2)
     if zostaje > 0:
         st.success(f"Zostaje Ci: {zostaje} zł – możesz je odłożyć lub zainwestować.")
-    elif
+    elif zostaje < 0:
+        st.error(f"Przekroczyłeś budżet o {-zostaje} zł – warto coś przyciąć.")
+    else:
+        st.info("Twój budżet bilansuje się idealnie.")
+
+    # Prosty wykres słupkowy
+    st.subheader("📈 Wykres budżetu:")
+    df = pd.DataFrame({
+        'Kategoria': list(kwoty.keys()),
+        'Kwota': list(kwoty.values())
+    })
+    st.bar_chart(df.set_index('Kategoria'))
+
+    # Dobra rada
+    st.subheader("💡 Dobra rada na dziś:")
+    st.info(random.choice(rady))
+
+else:
+    st.info("Wpisz dochód, aby zobaczyć podział.")
