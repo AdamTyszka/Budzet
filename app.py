@@ -3,7 +3,7 @@ import random
 import pandas as pd
 
 st.set_page_config(page_title="Budżet domowy PRO", layout="centered")
-st.title("🏠 Budżet domowy – Tyszków")
+st.title("🏠 Budżet domowy – rozbudowana wersja")
 
 # --- Funkcje pomocnicze ---
 def init_state(name, default):
@@ -49,7 +49,7 @@ for i in range(st.session_state["stałe_rows"]):
     kwota = st.number_input(f"Kwota {i+1} (zł)", min_value=0.0, step=10.0, key=f"stałe_kwota_{i}")
     suma_stalych += kwota
 
-# --- Sekcja z możliwością wyboru % albo konkretnych wydatków ---
+# --- Sekcja z możliwością wyboru % lub konkretów ---
 def obszar_procentowy(nazwa_obszaru, sesja_key, komentarz, dochód, predefiniowane=None):
     st.subheader(f"📂 {nazwa_obszaru}")
     st.caption(komentarz)
@@ -80,7 +80,7 @@ def obszar_procentowy(nazwa_obszaru, sesja_key, komentarz, dochód, predefiniowa
             suma += kwota
         return suma
 
-# --- Wszystkie obszary z możliwością wpisania % ---
+# --- Obszary ---
 suma_jedzenie = obszar_procentowy("Jedzenie", "jedzenie", "💬 Proponowany udział: 10–15%", dochód)
 suma_rozrywka = obszar_procentowy("Rozrywka", "rozrywka", "💬 Proponowany udział: do 10%", dochód)
 suma_transport = obszar_procentowy(
@@ -124,6 +124,43 @@ df = pd.DataFrame({
     'Kwota': [suma_stalych, suma_jedzenie, suma_rozrywka, suma_transport, suma_dzieci, oszczednosci]
 })
 st.bar_chart(df.set_index('Kategoria'))
+
+# --- Sekcja: Oszczędzanie na konkretny cel ---
+st.subheader("🎯 Planowanie oszczędzania na cel")
+
+cele_domyslne = {
+    "Wakacje": 15000,
+    "Nowy samochód": 50000,
+    "Poduszka finansowa (6x dochód)": dochód * 6 if dochód else 30000,
+    "Remont mieszkania": 25000,
+    "Własny cel (wpisz poniżej)": None
+}
+
+cel_wybrany = st.selectbox("Wybierz cel oszczędzania:", list(cele_domyslne.keys()))
+
+if cel_wybrany == "Własny cel (wpisz poniżej)":
+    nazwa_celu = st.text_input("Nazwa własnego celu:")
+    cel_kwota = st.number_input("Na jaką kwotę chcesz oszczędzać? (zł)", min_value=0.0, step=500.0)
+else:
+    nazwa_celu = cel_wybrany
+    cel_kwota = cele_domyslne[cel_wybrany]
+
+liczba_miesiecy = st.slider("W ile miesięcy chcesz osiągnąć ten cel?", min_value=1, max_value=60, value=12)
+
+if dochód > 0 and liczba_miesiecy > 0 and cel_kwota:
+    miesieczna_kwota = round(cel_kwota / liczba_miesiecy, 2)
+    udzial_proc = round((miesieczna_kwota / dochód) * 100, 2)
+
+    st.info(f"🎯 Cel: **{nazwa_celu}** ({cel_kwota} zł w {liczba_miesiecy} miesięcy)")
+    st.markdown(f"""
+    - 💸 Musisz odkładać: **{miesieczna_kwota} zł miesięcznie**
+    - 📊 To około **{udzial_proc}%** Twojego miesięcznego dochodu
+    """)
+
+    if miesieczna_kwota + suma_wszystkiego > dochód:
+        st.warning("⚠️ Uwaga! Ten cel przekracza możliwości Twojego budżetu – sprawdź inne opcje lub wydłuż czas oszczędzania.")
+    else:
+        st.success("✅ Ten cel jest możliwy do zrealizowania w ramach Twojego budżetu 💪")
 
 # --- Dobra rada ---
 st.subheader("💡 Dobra rada na dziś")
