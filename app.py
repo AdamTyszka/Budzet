@@ -3,7 +3,7 @@ import random
 import pandas as pd
 
 st.set_page_config(page_title="Budżet domowy PRO", layout="centered")
-st.title("🏠 Budżet domowy – rozbudowana wersja")
+st.title("🏠 Budżet domowy – Tyszków")
 
 # --- Funkcje pomocnicze ---
 def init_state(name, default):
