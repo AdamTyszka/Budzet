@@ -1,66 +1,104 @@
 import streamlit as st
 import random
-import pandas as pd
 
-st.set_page_config(page_title="Budżet domowy", layout="centered")
-st.title("💰 Budżet domowy – Twój osobisty kalkulator")
+st.set_page_config(page_title="Budżet domowy PRO", layout="centered")
+st.title("🏠 Budżet domowy – rozbudowana wersja")
 
-# Wprowadzenie miesięcznego dochodu
-dochód = st.number_input("Podaj swój miesięczny dochód netto (zł):", min_value=0, step=100)
+# --- Funkcje pomocnicze ---
+def init_state(name, default):
+    if name not in st.session_state:
+        st.session_state[name] = default
 
-# Domyślne proporcje budżetu
-proporcje = {
-    "Wydatki stałe": 0.4,
-    "Jedzenie": 0.15,
-    "Rozrywka / hobby": 0.1,
-    "Edukacja / rozwój": 0.05,
-    "Ubrania / zmienne": 0.1,
-    "Niezapowiedziane wydatki": 0.05,
-    "Oszczędności": 0.1
-}
+def add_row(key_prefix):
+    st.session_state[key_prefix + "_rows"] += 1
 
-# Dobre rady – losowane przy każdym odświeżeniu
-rady = [
-    "Oszczędzaj na początku miesiąca, nie na końcu.",
-    "Budżet to Twoje narzędzie wolności, nie ograniczenia.",
-    "Sprawdzaj podsumowanie wydatków raz w tygodniu.",
-    "10% oszczędności to minimum, 20% to cel!",
-    "Unikaj zakupów pod wpływem emocji.",
-    "Zapisuj wydatki — świadomość to podstawa.",
-]
+def remove_row(key_prefix):
+    if st.session_state[key_prefix + "_rows"] > 0:
+        st.session_state[key_prefix + "_rows"] -= 1
 
-if dochód > 0:
-    st.subheader("📊 Proponowany podział budżetu:")
-    kwoty = {}
-    suma_wydatków = 0
+# --- Inicjalizacja stanu ---
+init_state("stałe_rows", 0)
+init_state("jedzenie_rows", 0)
+init_state("rozrywka_rows", 0)
 
-    for kategoria, procent in proporcje.items():
-        kwota = round(dochód * procent, 2)
-        kwoty[kategoria] = kwota
-        suma_wydatków += kwota
-        udzial = round(kwota / dochód * 100, 1)
-        st.write(f"**{kategoria}**: {kwota} zł ({udzial}%)")
+# --- Dane wejściowe ---
+dochód = st.number_input("Podaj miesięczny dochód netto (zł):", min_value=0, step=100)
 
-    # Oblicz ile zostaje
-    zostaje = round(dochód - suma_wydatków, 2)
-    if zostaje > 0:
-        st.success(f"Zostaje Ci: {zostaje} zł – możesz je odłożyć lub zainwestować.")
-    elif zostaje < 0:
-        st.error(f"Przekroczyłeś budżet o {-zostaje} zł – warto coś przyciąć.")
-    else:
-        st.info("Twój budżet bilansuje się idealnie.")
+# --- Predefiniowane wydatki stałe ---
+st.subheader("📌 Wydatki stałe")
+st.caption("Podział automatyczny: ok. 40% dochodu")
 
-    # Prosty wykres słupkowy
-    st.subheader("📈 Wykres budżetu:")
-    df = pd.DataFrame({
-        'Kategoria': list(kwoty.keys()),
-        'Kwota': list(kwoty.values())
-    })
-    st.bar_chart(df.set_index('Kategoria'))
+predef_stale = ["Kredyty/pożyczki", "Czynsz", "Prąd", "Gaz", "Woda", "Nieczystości", "Śmieci"]
+suma_stalych = 0
 
-    # Dobra rada
-    st.subheader("💡 Dobra rada na dziś:")
-    st.info(random.choice(rady))
+for item in predef_stale:
+    kwota = st.number_input(f"{item} (zł)", min_value=0.0, step=10.0, key=f"stałe_{item}")
+    suma_stalych += kwota
 
+# --- Dynamiczne dodawanie własnych ---
+col1, col2 = st.columns([1,1])
+with col1:
+    st.button("➕ Dodaj koszt stały", on_click=add_row, args=("stałe",))
+with col2:
+    st.button("➖ Usuń koszt", on_click=remove_row, args=("stałe",))
+
+for i in range(st.session_state["stałe_rows"]):
+    nazwa = st.text_input(f"Koszt stały {i+1} – nazwa", key=f"stałe_nazwa_{i}")
+    kwota = st.number_input(f"Kwota {i+1} (zł)", min_value=0.0, step=10.0, key=f"stałe_kwota_{i}")
+    suma_stalych += kwota
+
+# --- Inne sekcje budżetu z własnymi wpisami ---
+def obszar_budzetowy(nazwa_obszaru, sesja_key):
+    st.subheader(f"📂 {nazwa_obszaru}")
+    st.caption("Automatyczny udział: 10-15%")
+
+    suma = 0
+    col1, col2 = st.columns([1,1])
+    with col1:
+        st.button(f"➕ Dodaj {nazwa_obszaru}", on_click=add_row, args=(sesja_key,))
+    with col2:
+        st.button(f"➖ Usuń {nazwa_obszaru}", on_click=remove_row, args=(sesja_key,))
+
+    for i in range(st.session_state[sesja_key + "_rows"]):
+        nazwa = st.text_input(f"{nazwa_obszaru} {i+1} – nazwa", key=f"{sesja_key}_nazwa_{i}")
+        kwota = st.number_input(f"{nazwa_obszaru} {i+1} – kwota (zł)", min_value=0.0, step=10.0, key=f"{sesja_key}_kwota_{i}")
+        suma += kwota
+
+    return suma
+
+suma_jedzenie = obszar_budzetowy("Jedzenie", "jedzenie")
+suma_rozrywka = obszar_budzetowy("Rozrywka", "rozrywka")
+
+# --- Oszczędności (proste pole)
+st.subheader("💼 Oszczędności")
+st.caption("Zalecany udział: min. 10%")
+oszczednosci = st.number_input("Kwota oszczędności (zł)", min_value=0.0, step=10.0)
+
+# --- Podsumowanie ---
+suma_wszystkiego = suma_stalych + suma_jedzenie + suma_rozrywka + oszczednosci
+zostaje = dochód - suma_wszystkiego
+
+st.subheader("📊 Podsumowanie")
+st.write(f"**Wydatki stałe:** {suma_stalych} zł")
+st.write(f"**Jedzenie:** {suma_jedzenie} zł")
+st.write(f"**Rozrywka:** {suma_rozrywka} zł")
+st.write(f"**Oszczędności:** {oszczednosci} zł")
+st.write(f"---\n**Suma wydatków:** {suma_wszystkiego} zł")
+
+if zostaje > 0:
+    st.success(f"✅ Zostaje Ci: {zostaje} zł – gratulacje!")
+elif zostaje < 0:
+    st.error(f"❌ Budżet przekroczony o {-zostaje} zł – sprawdź koszty.")
 else:
-    st.info("Wpisz dochód, aby zobaczyć podział.")
+    st.info("🔁 Budżet idealnie się bilansuje.")
+
+# --- Dobra rada ---
+st.subheader("💡 Dobra rada na dziś")
+rady = [
+    "Najpierw płać sobie – oszczędzaj zaraz po wypłacie.",
+    "Nie zapomnij o kosztach, które występują raz na kwartał.",
+    "Oszczędzanie to nawyk, nie cel sam w sobie.",
+    "Twój budżet nie musi być idealny – ważne, by był Twój.",
+    "Zostaw miejsce na życie – nie każdy wydatek to problem."
+]
+st.info(random.choice(rady))
